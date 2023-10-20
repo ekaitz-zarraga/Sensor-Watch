@@ -99,7 +99,7 @@ static char *_exercise_type_to_str(exercise_type_t t){
         case C25K_WARMUP:
             return "WU";
         case C25K_RUN:
-            return "RU";
+            return "rU";
         case C25K_WALK:
             return "WA";
         case C25K_FINISHED:
@@ -108,8 +108,12 @@ static char *_exercise_type_to_str(exercise_type_t t){
             return "  ";
     }
 }
-static void _display(couchTo5k_state_t *state, char *buf){
-    // TODO only repaint needed parts
+
+#define BUF_LEN 11
+static void _display(couchTo5k_state_t *state){
+    static char buf[BUF_LEN];
+    static char prev_buf[BUF_LEN];
+
     uint8_t seconds = state->timer % 60;
     sprintf(buf, "%s%2d%2d%02d%02d",
             _exercise_type_to_str(state->exercise_type),
@@ -117,7 +121,14 @@ static void _display(couchTo5k_state_t *state, char *buf){
             ((state->timer - seconds) / 60) % 100,
             seconds,
             (state->exercise + 1) % 100);
-    watch_display_string(buf, 0);
+
+    // Only paint what changed
+    for(uint8_t i = 0; i < BUF_LEN; i++){
+        if ( prev_buf != buf ){
+            watch_display_character(buf[i], i);
+            prev_buf[i]=buf[i];
+        }
+    }
 }
 
 
@@ -174,7 +185,6 @@ void couchTo5k_face_activate(movement_settings_t *settings, void *context) {
 bool couchTo5k_face_loop(movement_event_t event, movement_settings_t *settings,
                          void *context) {
     couchTo5k_state_t *state = (couchTo5k_state_t *)context;
-    static char buf[11];
     static bool paused = true;
 
     switch (event.event_type) {
@@ -183,7 +193,7 @@ bool couchTo5k_face_loop(movement_event_t event, movement_settings_t *settings,
             movement_request_tick_frequency(1);
             _init_session(state);
             paused = true;
-            _display(state, buf);
+            _display(state);
             break;
         case EVENT_TICK:
             if ( !paused && !_finished(state) ) {
@@ -193,7 +203,7 @@ bool couchTo5k_face_loop(movement_event_t event, movement_settings_t *settings,
                     state->timer--;
                 }
             }
-            _display(state, buf);
+            _display(state);
             break;
         case EVENT_LIGHT_BUTTON_UP:
             // This is the next-exercise / reset button.
